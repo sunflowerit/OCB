@@ -461,23 +461,25 @@ class hr_applicant(osv.Model):
                 compose_ctx = dict(context,
                                    active_id=False,
                                    active_ids=ids)
-                compose_id = self.pool['mail.compose.message'].create(
-                    cr, uid, {
-                        'model': self._name,
-                        'composition_mode': 'mass_mail',
-                        'template_id': stage.template_id.id,
-                        'post': True,
-                        'notify': True,
-                    }, context=compose_ctx)
-                values = self.pool['mail.compose.message'].onchange_template_id(
-                    cr, uid, [compose_id], stage.template_id.id, 'mass_mail', self._name, False, context=compose_ctx)['value']
-                if values.get('attachment_ids'):
-                    values['attachment_ids'] = [(6, 0, values['attachment_ids'])]
-                self.pool['mail.compose.message'].write(
-                    cr, uid, [compose_id],
-                    values,
-                    context=compose_ctx)
-                self.pool['mail.compose.message'].send_mail(cr, uid, [compose_id], context=compose_ctx)
+                for id in ids:
+                    compose_id = self.pool['mail.compose.message'].create(
+                        cr, uid, {
+                            'model': self._name,
+                            'res_id': id,
+                            'composition_mode': 'mass_mail',
+                            'template_id': stage.template_id.id,
+                            'post': True,
+                            'notify': True,
+                        }, context=compose_ctx)
+                    values = self.pool['mail.compose.message'].onchange_template_id(
+                        cr, uid, [compose_id], stage.template_id.id, 'mass_mail', self._name, False, context=compose_ctx)['value']
+                    if values.get('attachment_ids'):
+                        values['attachment_ids'] = [(6, 0, values['attachment_ids'])]
+                    self.pool['mail.compose.message'].write(
+                        cr, uid, [compose_id],
+                        values,
+                        context=compose_ctx)
+                    self.pool['mail.compose.message'].send_mail(cr, uid, [compose_id], context=compose_ctx)
         return res
 
     def create_employee_from_applicant(self, cr, uid, ids, context=None):
