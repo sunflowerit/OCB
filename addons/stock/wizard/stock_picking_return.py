@@ -75,7 +75,7 @@ class ReturnPicking(models.TransientModel):
             lambda quant: not quant.reservation_id or quant.reservation_id.origin_returned_move_id != move)
         )
         quantity = move.product_id.uom_id._compute_quantity(quantity, move.product_uom)
-        return {'product_id': move.product_id.id, 'quantity': quantity, 'move_id': move.id, 'to_refund_so': True}
+        return {'product_id': move.product_id.id, 'quantity': quantity, 'move_id': move.id}
 
     @api.multi
     def _create_returns(self):
