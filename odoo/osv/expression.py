@@ -711,7 +711,7 @@ class expression(object):
                 return list({
                     rid
                     for name in names
-                    for rid, rname in comodel.name_search(name, [], 'ilike', limit=None)
+                    for rid in comodel._name_search(name, [], 'ilike', limit=None)
                 })
             return list(value)
 
@@ -730,13 +730,13 @@ class expression(object):
                         doms.insert(0, OR_OPERATOR)
                     doms += [AND_OPERATOR, ('parent_left', '<', rec.parent_right), ('parent_left', '>=', rec.parent_left)]
                 if prefix:
-                    return [(left, 'in', left_model.search(doms).ids)]
+                    return [(left, 'in', left_model._search(doms))]
                 return doms
             else:
                 parent_name = parent or left_model._parent_name
                 child_ids = set(ids)
                 while ids:
-                    ids = left_model.search([(parent_name, 'in', ids)]).ids
+                    ids = left_model._search([(parent_name, 'in', ids)])
                     child_ids.update(ids)
                 return [(left, 'in', list(child_ids))]
 
@@ -874,15 +874,13 @@ class expression(object):
                 raise NotImplementedError('auto_join attribute not supported on field %s' % field)
 
             elif len(path) > 1 and field.store and field.type == 'many2one':
-                right_ids = comodel.with_context(active_test=False).search([('.'.join(path[1:]), operator, right)]).ids
-                leaf.leaf = (path[0], 'in', right_ids)
-                push(leaf)
+                right_ids = comodel.with_context(active_test=False)._search([(path[1], operator, right)])
+                push((path[0], 'in', right_ids), model, alias)
 
             # Making search easier when there is a left operand as one2many or many2many
             elif len(path) > 1 and field.store and field.type in ('many2many', 'one2many'):
-                right_ids = comodel.search([('.'.join(path[1:]), operator, right)]).ids
-                leaf.leaf = (path[0], 'in', right_ids)
-                push(leaf)
+                right_ids = comodel.with_context(**field.context)._search([(path[1], operator, right)])
+                push((path[0], 'in', right_ids), model, alias)
 
             elif not field.store:
                 # Non-stored field should provide an implementation of search.
@@ -896,7 +894,7 @@ class expression(object):
                 else:
                     # Let the field generate a domain.
                     if len(path) > 1:
-                        right = comodel.search([('.'.join(path[1:]), operator, right)]).ids
+                        right = comodel._search([(path[1], operator, right)])
                         operator = 'in'
                     domain = field.determine_domain(model, operator, right)
 
@@ -930,13 +928,13 @@ class expression(object):
                     if isinstance(right, pycompat.string_types):
                         op2 = (TERM_OPERATORS_NEGATION[operator]
                                if operator in NEGATIVE_TERM_OPERATORS else operator)
-                        ids2 = [x[0] for x in comodel.name_search(right, domain or [], op2, limit=None)]
+                        ids2 = comodel._name_search(right, domain or [], op2, limit=None)
                     elif isinstance(right, collections.Iterable):
                         ids2 = right
                     else:
                         ids2 = [right]
                     if ids2 and inverse_is_int and domain:
-                        ids2 = comodel.search([('id', 'in', ids2)] + domain).ids
+                        ids2 = comodel._search([('id', 'in', ids2)] + domain)
 
                     if ids2 and comodel._fields[field.inverse_name].store:
                         op1 = 'not inselect' if operator in NEGATIVE_TERM_OPERATORS else 'inselect'
@@ -974,7 +972,7 @@ class expression(object):
                     # determine ids2 in comodel
                     ids2 = to_ids(right, comodel)
                     domain = HIERARCHY_FUNCS[operator]('id', ids2, comodel)
-                    ids2 = comodel.search(domain).ids
+                    ids2 = comodel._search(domain)
 
                     # rewrite condition in terms of ids2
                     if comodel == model:
@@ -993,7 +991,7 @@ class expression(object):
                             domain = domain(model)
                         op2 = (TERM_OPERATORS_NEGATION[operator]
                                if operator in NEGATIVE_TERM_OPERATORS else operator)
-                        ids2 = [x[0] for x in comodel.name_search(right, domain or [], op2, limit=None)]
+                        ids2 = comodel._name_search(right, domain or [], op2, limit=None)
                     elif isinstance(right, collections.Iterable):
                         ids2 = right
                     else:
@@ -1034,7 +1032,7 @@ class expression(object):
                             operator = dict_op[operator]
                         elif isinstance(right, list) and operator in ['!=', '=']:  # for domain (FIELD,'=',['value1','value2'])
                             operator = dict_op[operator]
-                        res_ids = [x[0] for x in comodel.with_context(active_test=False).name_search(right, [], operator, limit=None)]
+                        res_ids = comodel.with_context(active_test=False)._name_search(right, [], operator, limit=None)
                         if operator in NEGATIVE_TERM_OPERATORS:
                             res_ids.append(False)  # TODO this should not be appended if False was in 'right'
                         return left, 'in', res_ids
