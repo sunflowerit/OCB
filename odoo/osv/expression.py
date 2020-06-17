@@ -222,9 +222,9 @@ def is_false(model, domain):
             stack.append(+1)
         elif token == FALSE_LEAF:
             stack.append(-1)
-        elif token[1] == 'in' and not token[2]:
+        elif token[1] == 'in' and not (isinstance(token[2], Query) or token[2]):
             stack.append(-1)
-        elif token[1] == 'not in' and not token[2]:
+        elif token[1] == 'not in' and not (isinstance(token[2], Query) or token[2]):
             stack.append(+1)
         else:
             stack.append(0)
@@ -933,10 +933,14 @@ class expression(object):
                         ids2 = right
                     else:
                         ids2 = [right]
-                    if ids2 and inverse_is_int and domain:
+                    if inverse_is_int and domain:
                         ids2 = comodel._search([('id', 'in', ids2)] + domain)
 
-                    if ids2 and comodel._fields[field.inverse_name].store:
+                    if isinstance(ids2, Query) and comodel._fields[field.inverse_name].store:
+                        op1 = 'not inselect' if operator in NEGATIVE_TERM_OPERATORS else 'inselect'
+                        subquery, subparams = ids2.select('"%s"."%s"' % (comodel._table, field.inverse_name))
+                        push(('id', op1, (subquery, subparams)), model, alias, internal=True)
+                    elif ids2 and comodel._fields[field.inverse_name].store:
                         op1 = 'not inselect' if operator in NEGATIVE_TERM_OPERATORS else 'inselect'
                         subquery = 'SELECT "%s" FROM "%s" WHERE "id" IN %%s' % (field.inverse_name, comodel._table)
                         subparams = [tuple(ids2)]
@@ -997,11 +1001,18 @@ class expression(object):
                     else:
                         ids2 = [right]
 
-                    # rewrite condition in terms of ids2
-                    subop = 'not inselect' if operator in NEGATIVE_TERM_OPERATORS else 'inselect'
-                    subquery = 'SELECT "%s" FROM "%s" WHERE "%s" IN %%s' % (rel_id1, rel_table, rel_id2)
-                    ids2 = tuple(it for it in ids2 if it) or (None,)
-                    push(create_substitution_leaf(leaf, ('id', subop, (subquery, [ids2])), internal=True))
+                    if isinstance(ids2, Query):
+                        # rewrite condition in terms of ids2
+                        subop = 'not inselect' if operator in NEGATIVE_TERM_OPERATORS else 'inselect'
+                        subquery, subparams = ids2.select()
+                        query = 'SELECT "%s" FROM "%s" WHERE "%s" IN (%s)' % (rel_id1, rel_table, rel_id2, subquery)
+                        push(('id', subop, (query, subparams)), model, alias, internal=True)
+                    else:
+                        # rewrite condition in terms of ids2
+                        subop = 'not inselect' if operator in NEGATIVE_TERM_OPERATORS else 'inselect'
+                        subquery = 'SELECT "%s" FROM "%s" WHERE "%s" IN %%s' % (rel_id1, rel_table, rel_id2)
+                        ids2 = tuple(it for it in ids2 if it) or (None,)
+                        push(create_substitution_leaf(leaf, ('id', subop, (subquery, [ids2])), internal=True))
 
                 else:
                     # determine ids1 = records with relations
@@ -1034,12 +1045,12 @@ class expression(object):
                             operator = dict_op[operator]
                         res_ids = comodel.with_context(active_test=False)._name_search(right, [], operator, limit=None)
                         if operator in NEGATIVE_TERM_OPERATORS:
-                            res_ids.append(False)  # TODO this should not be appended if False was in 'right'
+                            res_ids = list(res_ids) + [False]  # TODO this should not be appended if False was in 'right'
                         return left, 'in', res_ids
                     # resolve string-based m2o criterion into IDs
-                    if isinstance(right, pycompat.string_types) or \
-                            right and isinstance(right, (tuple, list)) and all(isinstance(item, pycompat.string_types) for item in right):
-                        push(create_substitution_leaf(leaf, _get_expression(comodel, left, right, operator), model))
+                    if isinstance(right, str) or \
+                            isinstance(right, (tuple, list)) and right and all(isinstance(item, str) for item in right):
+                        push(create_substitution_leaf(leaf, _get_expression(comodel, left, right, operator), model, alias))
                     else:
                         # right == [] or right == False and all other cases are handled by __leaf_to_sql()
                         push_result(leaf)
@@ -1170,6 +1181,10 @@ class expression(object):
                 else:
                     query = '(%s."%s" IS NULL)' % (table_alias, left)
                 params = []
+            elif isinstance(right, Query):
+                subquery, subparams = right.select()
+                query = '(%s."%s" %s (%s))' % (table_alias, left, operator, subquery)
+                params = subparams
             elif isinstance(right, (list, tuple)):
                 if model._fields[left].type == "boolean":
                     params = [it for it in (True, False) if it in right]
