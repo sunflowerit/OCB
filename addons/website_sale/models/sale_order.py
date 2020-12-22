@@ -65,7 +65,7 @@ class SaleOrder(models.Model):
             ('team_id.team_type', '=', 'website'),
             ('state', '=', 'draft'),
             ('partner_id', '!=', self.env.ref('base.public_partner').id),
-            ('order_line', '!=', False)
+            #('order_line', '!=', False)
         ])
         # is_abandoned domain possibilities
         if (operator not in expression.NEGATIVE_TERM_OPERATORS and value) or (operator in expression.NEGATIVE_TERM_OPERATORS and not value):

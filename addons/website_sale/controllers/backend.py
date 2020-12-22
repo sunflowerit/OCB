@@ -81,7 +81,7 @@ class WebsiteSaleBackend(WebsiteBackend):
         sales_values['summary'].update(
             order_to_invoice_count=request.env['sale.order'].search_count(sale_order_domain + [
                 ('state', 'in', ['sale', 'done']),
-                ('order_line', '!=', False),
+                #('order_line', '!=', False),
                 ('partner_id', '!=', request.env.ref('base.public_partner').id),
                 ('invoice_status', '=', 'to invoice'),
             ]),
