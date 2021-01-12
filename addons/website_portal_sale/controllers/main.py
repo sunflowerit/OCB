@@ -19,16 +19,13 @@ class website_account(website_account):
         SaleOrder = request.env['sale.order']
         Invoice = request.env['account.invoice']
         quotation_count = SaleOrder.search_count([
-            ('message_partner_ids', 'child_of', [partner.commercial_partner_id.id]),
             ('state', 'in', ['sent', 'cancel'])
         ])
         order_count = SaleOrder.search_count([
-            ('message_partner_ids', 'child_of', [partner.commercial_partner_id.id]),
             ('state', 'in', ['sale', 'done'])
         ])
         invoice_count = Invoice.search_count([
             ('type', 'in', ['out_invoice', 'out_refund']),
-            ('message_partner_ids', 'child_of', [partner.commercial_partner_id.id]),
             ('state', 'in', ['open', 'paid', 'cancel'])
         ])
 
@@ -50,7 +47,6 @@ class website_account(website_account):
         SaleOrder = request.env['sale.order']
 
         domain = [
-            ('message_partner_ids', 'child_of', [partner.commercial_partner_id.id]),
             ('state', 'in', ['sent', 'cancel'])
         ]
 
@@ -87,7 +83,6 @@ class website_account(website_account):
         SaleOrder = request.env['sale.order']
 
         domain = [
-            ('message_partner_ids', 'child_of', [partner.commercial_partner_id.id]),
             ('state', 'in', ['sale', 'done'])
         ]
         archive_groups = self._get_archive_groups('sale.order', domain)
