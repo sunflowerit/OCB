@@ -359,9 +359,13 @@ class StockMove(models.Model):
         # all grouped in the same picking.
         if not self.picking_type_id:
             return self
-        bom = self.env['mrp.bom'].sudo()._bom_find(product=self.product_id, company_id=self.company_id.id)
+        print 1, self.product_id.default_code, self.picking_type_id
+        bom = self.env['mrp.bom'].sudo()._bom_find(
+            product=self.product_id, company_id=self.company_id.id, picking_type=self.picking_type_id)
+        print 2, bom
         if not bom or bom.type != 'phantom':
             return self
+        print 3
         phantom_moves = self.env['stock.move']
         processed_moves = self.env['stock.move']
         factor = self.product_uom._compute_quantity(self.product_uom_qty, bom.product_uom_id) / bom.product_qty
@@ -380,7 +384,9 @@ class StockMove(models.Model):
             # Set the state of resulting moves according to 'assigned' as the original move is assigned
             processed_moves.write({'state': 'assigned'})
         # delete the move with original product which is not relevant anymore
-        self.sudo().unlink()
+        self_sudo = self.sudo()
+        self_sudo.write(dict(route_ids=[(5, 0, 0)]))
+        self_sudo.unlink()
         return processed_moves
 
     def _propagate_split(self, new_move, qty):
