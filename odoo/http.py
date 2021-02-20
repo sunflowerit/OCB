@@ -401,7 +401,18 @@ class WebRequest(object):
         secret = self.env['ir.config_parameter'].sudo().get_param('database.secret')
         assert secret, "CSRF protection requires a configured database secret"
         hm = hmac.new(secret.encode('ascii'), msg.encode('utf-8'), hashlib.sha1).hexdigest()
-        return '%so%s' % (hm, max_ts)
+        ret = '%so%s' % (hm, max_ts)
+        _logger.info(
+            "CSRFGIVE: given out CSRF %s for session %s, max_ts %s, secret %s, msg %s to user %s on path %s",
+            ret,
+            token,
+            max_ts,
+            secret,
+            msg,
+            self.uid,
+            self.httprequest.path
+        )
+        return ret
 
     def validate_csrf(self, csrf):
         if not csrf:
@@ -425,7 +436,20 @@ class WebRequest(object):
         secret = self.env['ir.config_parameter'].sudo().get_param('database.secret')
         assert secret, "CSRF protection requires a configured database secret"
         hm_expected = hmac.new(secret.encode('ascii'), msg.encode('utf-8'), hashlib.sha1).hexdigest()
-        return consteq(hm, hm_expected)
+        ret = consteq(hm, hm_expected)
+        if not ret:
+            _logger.info(
+                "CSRFFAIL: got %s, expected %s for session %s, max_ts %s, secret %s, msg %s to user %s on path %s",
+                hm,
+                hm_expected,
+                token,
+                max_ts,
+                secret,
+                msg,
+                self.uid,
+                self.httprequest.path
+            )
+        return ret
 
 def route(route=None, **kw):
     """Decorator marking the decorated method as being a handler for
