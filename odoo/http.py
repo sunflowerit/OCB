@@ -403,14 +403,16 @@ class WebRequest(object):
         hm = hmac.new(secret.encode('ascii'), msg.encode('utf-8'), hashlib.sha1).hexdigest()
         ret = '%so%s' % (hm, max_ts)
         _logger.info(
-            "CSRFGIVE: given out CSRF %s for session %s, max_ts %s, secret %s, msg %s to user %s on path %s",
+            "CSRFGIVE: given out CSRF %s for session %s, max_ts %s, secret %s, msg %s to user %s on path %s for %s and %s",
             ret,
             token,
             max_ts,
             secret,
             msg,
             self.uid,
-            self.httprequest.path
+            self.httprequest.path,
+            self.httprequest.headers.get("X-Forwarded-For", "<unknown>"),
+            self.httprequest.headers.get("CF-Connecting-IP", "<unknown>"),
         )
         return ret
 
@@ -439,7 +441,7 @@ class WebRequest(object):
         ret = consteq(hm, hm_expected)
         if not ret:
             _logger.info(
-                "CSRFFAIL: got %s, expected %s for session %s, max_ts %s, secret %s, msg %s to user %s on path %s",
+                "CSRFFAIL: got %s, expected %s for session %s, max_ts %s, secret %s, msg %s to user %s on path %s for %s and %s",
                 hm,
                 hm_expected,
                 token,
@@ -447,7 +449,9 @@ class WebRequest(object):
                 secret,
                 msg,
                 self.uid,
-                self.httprequest.path
+                self.httprequest.path,
+                self.httprequest.headers.get("X-Forwarded-For", "<unknown>"),
+                self.httprequest.headers.get("CF-Connecting-IP", "<unknown>"),
             )
         return ret
 
@@ -1396,6 +1400,13 @@ class Root(object):
             explicit_session = False
         if sid is None:
             httprequest.session = self.session_store.new()
+            _logger.info(
+                "SESSNEW: given out new session %s on path %s for %s and %s",
+                httprequest.session.sid,
+                httprequest.path,
+                httprequest.headers.get("X-Forwarded-For", "<unknown>"),
+                httprequest.headers.get("CF-Connecting-IP", "<unknown>"),
+            )
         else:
             httprequest.session = self.session_store.get(sid)
         return explicit_session
@@ -1452,8 +1463,17 @@ class Root(object):
 
         if httprequest.session.should_save:
             if httprequest.session.rotate:
+                oldsid = httprequest.session.sid
                 self.session_store.delete(httprequest.session)
                 httprequest.session.sid = self.session_store.generate_key()
+                _logger.info(
+                    "SESSROTATE: Rotate session %s to session %s on path %s for %s and %s",
+                    oldsid,
+                    httprequest.session.sid,
+                    httprequest.path,
+                    httprequest.headers.get("X-Forwarded-For", "<unknown>"),
+                    httprequest.headers.get("CF-Connecting-IP", "<unknown>"),
+                )
                 httprequest.session.modified = True
             self.session_store.save(httprequest.session)
         # We must not set the cookie if the session id was specified using a http header or a GET parameter.
