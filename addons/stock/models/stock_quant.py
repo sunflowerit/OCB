@@ -267,7 +267,7 @@ class StockQuant(models.Model):
             # if we want to unreserve
             available_quantity = sum(quants.mapped('reserved_quantity'))
             if float_compare(abs(quantity), available_quantity, precision_rounding=rounding) > 0:
-                raise UserError(_('It is not possible to unreserve more products of %s than you have in stock.') % product_id.display_name)
+                raise UserError(_('It is not possible to unreserve more products of %s than you have in stock. \n quantity = %s \n available quantity = %s') % (product_id.display_name, abs(quantity), available_quantity) )
         else:
             return reserved_quants
 

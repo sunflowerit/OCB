@@ -93,10 +93,13 @@ class Location(models.Model):
                 ('product_qty', '>', 0),
             ])
             if reserved_quantities:
+                rq = self.env['stock.move.line'].search([
+                    ('location_id', 'in', modified_locations.ids),
+                    ('product_qty', '>', 0)], limit=1)
                 raise UserError(_(
                     "You cannot change the location type or its use as a scrap"
                     " location as there are products reserved in this location."
-                    " Please unreserve the products first."
+                    " Please unreserve the products first.  see " + str(rq.move_id.name)
                 ))
         return super(Location, self).write(values)
 

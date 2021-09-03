@@ -457,7 +457,12 @@ class StockMove(models.Model):
                 # force the amount in the context, but in the case it is 0 it'll create an entry
                 # for the entire cost of the move. This case happens when the candidates moves
                 # entirely compensate the problematic move.
-                if not corrected_value:
+
+                #if not corrected_value:
+                #bug fixed by Bill 20190404  https://github.com/odoo/odoo/commit/108b43c60a1a14f27b62562f069bcb09818d2394
+                #if move.company_id.currency_id.is_zero(corrected_value):
+                precision_currency = move.currency_id or move.company_id.currency_id
+                if float_is_zero(corrected_value, precision_rounding=precision_currency.rounding):
                     continue
 
                 if move._is_in():
@@ -537,8 +542,8 @@ class StockMove(models.Model):
         debit_value = self.company_id.currency_id.round(valuation_amount)
 
         # check that all data is correct
-        if self.company_id.currency_id.is_zero(debit_value):
-            raise UserError(_("The cost of %s is currently equal to 0. Change the cost or the configuration of your product to avoid an incorrect valuation.") % (self.product_id.display_name,))
+       # if self.company_id.currency_id.is_zero(debit_value):
+       #     raise UserError(_("The cost of %s is currently equal to 0. Change the cost or the configuration of your product to avoid an incorrect valuation.") % (self.product_id.display_name,))
         credit_value = debit_value
 
         partner_id = (self.picking_id.partner_id and self.env['res.partner']._find_accounting_partner(self.picking_id.partner_id).id) or False
