@@ -907,7 +907,8 @@ class Escpos:
         else:
             raise CashDrawerError()
 
-        self.get_printer_status()
+        if self.idVendor != 0x1c8a:
+            self.get_printer_status()
 
     def hw(self, hw):
         """ Hardware operations """
