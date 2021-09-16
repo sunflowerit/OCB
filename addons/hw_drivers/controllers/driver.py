@@ -254,7 +254,7 @@ class EventManager(object):
             **device.data,
             'device_id': device.device_identifier,
             'time': time.time(),
-            'request_data': json.loads(request.params['data']) if request else None,
+            'request_data': json.loads(request.params['data']) if request and request.params and 'data' in request.params else None,
         }
         self.events.append(event)
         for session in self.sessions:
