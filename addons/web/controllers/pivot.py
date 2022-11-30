@@ -70,6 +70,8 @@ class TableExporter(http.Controller):
         # Step 3: writing data
         x = 0
         for row in jdata['rows']:
+            if not 'title' in row:
+                row['title'] = ''
             worksheet.write(y, x, row['indent'] * '     ' + ustr(row['title']), header_plain)
             for cell in row['values']:
                 x = x + 1
